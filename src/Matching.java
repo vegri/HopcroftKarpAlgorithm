@@ -24,10 +24,15 @@ class Vertex implements Comparable<Vertex> {
 	public Vertex(String name) {
 		this.name = name;
 	}
-	
+
 	@Override
-	public String toString(){
+	public String toString() {
 		return name;
+	}
+
+	public void addEdge(Vertex neighbour) {
+		this.adjacencyList.add(neighbour);
+		neighbour.adjacencyList.add(this);
 	}
 
 	// delete neighbour in adjacency list and vice versa
@@ -53,6 +58,11 @@ class HopcroftKarp {
 	List<TreeSet<Vertex>> levels = new ArrayList<>();
 	List<List<Vertex>> augmentingPaths = new ArrayList<>();
 
+	private void storeVertex(Vertex vertex, int level){
+		levels.get(level).add(vertex);
+		vertex.storedLevel = level;
+	}
+	
 	public void findMatching(List<Vertex> students) {
 
 		// add all free vertices from students to level 0
@@ -61,13 +71,12 @@ class HopcroftKarp {
 				if (levels.isEmpty()) {
 					levels.add(new TreeSet<Vertex>());
 				}
-				levels.get(0).add(student);
+				storeVertex(student, 0);
 			}
 		}
 		int i = 0;
 
-		
-		do{
+		do {
 			if (levels.size() < i + 2) {
 				levels.add(new TreeSet<Vertex>());
 			}
@@ -82,21 +91,20 @@ class HopcroftKarp {
 					if (!freeDate.isStoredInAnyLevel()) {
 						// store or overwrite freeDate at level i+1 (TreeSet
 						// stores every element only once)
-						levels.get(i + 1).add(freeDate);
-						freeDate.storedLevel = i + 1;
+						storeVertex(freeDate, i+1);
 					}
-					student.indegree += 1;
+					freeDate.indegree += 1;
 				}
 			}
 
-			if (levelHasFreeVertex(i + 1)) {
+			if (levelHasFreeVertex(i + 1)) { // b)
 				// delete all matched vertices in level i+1
 				for (Vertex date : levels.get(i + 1)) {
 					if (date.match != null) {
 						levels.get(i + 1).remove(date);
-						augmentation(i + 1);
 					}
 				}
+				augmentation(i + 1);
 			} else {
 				// add level i+2
 				if (levels.size() < i + 3) {
@@ -106,16 +114,14 @@ class HopcroftKarp {
 				// already stored in any level
 				for (Vertex date : levels.get(i + 1)) {
 					if (!date.match.isStoredInAnyLevel()) {
-						levels.get(i + 2).add(date.match);
-						date.match.storedLevel = i + 2;
+						storeVertex(date.match, i+2);
 					}
 				}
-
 			}
 			// go to next student level
 			i += 2;
-		}
-		while (!isAllVerticesClassified(students) && !levelHasFreeVertex(i-1));
+		} while (!isAllVerticesClassified(students)
+				&& !levelHasFreeVertex(i - 1));
 		System.out.println(augmentingPaths);
 	}
 
@@ -183,37 +189,61 @@ class HopcroftKarp {
 		while (!deleteVertices.isEmpty()) {
 			Vertex deleteVertex = deleteVertices.poll();
 			removeVertexFromLevel(deleteVertex, deleteVertices);
-
 		}
-
 	}
 
 	private void removeVertexFromLevel(Vertex vertex,
 			Queue<Vertex> deletionQueue) {
-		vertex.match.match = null;
 		vertex.match = null;
 		levels.get(vertex.storedLevel).remove(vertex);
 		// store as classified:
 		vertex.storedLevel = -2;
+		
+		List<Vertex> toBeDeleted = new ArrayList<>();
 		for (Vertex neighbour : vertex.adjacencyList) {
 			neighbour.indegree--;
-			vertex.deleteEdge(neighbour);
+			// vertex.deleteEdge(neighbour); // ConcurrentModificationException!!!
+			toBeDeleted.add(neighbour);
 			if (neighbour.indegree == 0) {
 				deletionQueue.add(neighbour);
 			}
 		}
+		// Delete all neighbours
+		for(Vertex deleteVertex: toBeDeleted){
+			vertex.deleteEdge(deleteVertex);
+		}
 	}
-
 }
 
 public class Matching {
 
 	public static void main(String[] args) {
 
+//		Christian 1 
+//		George 1 
+//		Paula 3 
+//		Sebastian 4 
 		Vertex a = new Vertex("a");
+		Vertex b = new Vertex("b");
+		Vertex c = new Vertex("c");
+		Vertex d = new Vertex("d");
 		Vertex d1 = new Vertex("1");
-		a.adjacencyList.add(d1);
-
+		Vertex d2 = new Vertex("2");
+		Vertex d3 = new Vertex("3");
+		Vertex d4 = new Vertex("4");
+		a.addEdge(d3);
+		a.addEdge(d2);
+		a.addEdge(d4);
+		b.addEdge(d2);
+		b.addEdge(d3);
+		b.addEdge(d4);
+		c.addEdge(d1);
+		c.addEdge(d2);
+		c.addEdge(d4);
+		d.addEdge(d1);
+		d.addEdge(d2);
+		d.addEdge(d3);
+		
 		List<Vertex> students = new ArrayList<>();
 		students.add(a);
 
